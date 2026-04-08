@@ -1,15 +1,22 @@
-// lib/github.ts
+// lib/github.ts — credential-aware GitHub API helper
 
 const BASE = "https://api.github.com";
-const OWNER = process.env.GITHUB_OWNER!;
-const REPO  = process.env.GITHUB_REPO!;
-const TOKEN = process.env.GITHUB_TOKEN!;
 
-const headers = {
-  Authorization: `Bearer ${TOKEN}`,
-  Accept: "application/vnd.github+json",
-  "X-GitHub-Api-Version": "2022-11-28",
-};
+// Credentials are passed per-call so any user can connect their own repo
+export interface GithubCreds {
+  token: string;
+  owner: string;
+  repo: string;
+}
+
+// Fallback to env vars for local/server-only deployments
+export function envCreds(): GithubCreds {
+  return {
+    token: process.env.GITHUB_TOKEN ?? "",
+    owner: process.env.GITHUB_OWNER ?? "",
+    repo:  process.env.GITHUB_REPO  ?? "",
+  };
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,8 +56,19 @@ export interface GHRun {
 
 // ─── Fetch helpers ─────────────────────────────────────────────────────────
 
-async function ghFetch(path: string) {
-  const res = await fetch(`${BASE}${path}`, { headers, next: { revalidate: 30 } });
+function makeHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+}
+
+async function ghFetch(path: string, creds: GithubCreds) {
+  const res = await fetch(`${BASE}${path}`, {
+    headers: makeHeaders(creds.token),
+    next: { revalidate: 30 },
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`GitHub API ${res.status}: ${text}`);
@@ -58,25 +76,29 @@ async function ghFetch(path: string) {
   return res.json();
 }
 
-// ─── Get recent workflow runs (last 20) ────────────────────────────────────
+// ─── Get recent workflow runs ────────────────────────────────────────────────
 
-export async function getWorkflowRuns(perPage = 20): Promise<GHRun[]> {
+export async function getWorkflowRuns(perPage = 20, creds?: GithubCreds): Promise<GHRun[]> {
+  const c = creds ?? envCreds();
   const data = await ghFetch(
-    `/repos/${OWNER}/${REPO}/actions/runs?per_page=${perPage}&exclude_pull_requests=false`
+    `/repos/${c.owner}/${c.repo}/actions/runs?per_page=${perPage}&exclude_pull_requests=false`,
+    c
   );
   return data.workflow_runs ?? [];
 }
 
-// ─── Get jobs (with steps) for a single run ────────────────────────────────
+// ─── Get jobs (with steps) for a single run ─────────────────────────────────
 
-export async function getRunJobs(runId: number): Promise<GHJob[]> {
+export async function getRunJobs(runId: number, creds?: GithubCreds): Promise<GHJob[]> {
+  const c = creds ?? envCreds();
   const data = await ghFetch(
-    `/repos/${OWNER}/${REPO}/actions/runs/${runId}/jobs?per_page=30`
+    `/repos/${c.owner}/${c.repo}/actions/runs/${runId}/jobs?per_page=30`,
+    c
   );
   return data.jobs ?? [];
 }
 
-// ─── Compute step duration in seconds from ISO timestamps ──────────────────
+// ─── Duration helpers ────────────────────────────────────────────────────────
 
 export function stepDuration(step: GHStep): number {
   if (!step.started_at || !step.completed_at) return 0;
@@ -99,7 +121,7 @@ export function runDuration(run: GHRun): number {
   );
 }
 
-// ─── Map GitHub conclusion → our status ────────────────────────────────────
+// ─── Map GitHub conclusion → our status ─────────────────────────────────────
 
 export function mapStatus(status: string, conclusion: string | null): "passed" | "failed" | "running" | "skipped" {
   if (status === "in_progress" || status === "queued" || status === "waiting") return "running";
@@ -109,9 +131,7 @@ export function mapStatus(status: string, conclusion: string | null): "passed" |
   return "running";
 }
 
-// ─── Anomaly detection logic ───────────────────────────────────────────────
-// Takes array of durations (oldest first), returns anomaly if last value
-// deviates > threshold% from the rolling average of previous N runs.
+// ─── Anomaly detection ────────────────────────────────────────────────────────
 
 export interface Anomaly {
   metric: string;
@@ -123,7 +143,7 @@ export interface Anomaly {
 
 export function detectAnomalies(
   label: string,
-  values: number[], // oldest → newest, last element is current run
+  values: number[],
   threshold = 15
 ): Anomaly | null {
   if (values.length < 3) return null;
@@ -145,18 +165,16 @@ export function detectAnomalies(
   return { metric: label, flaggedValue: current, baselineValue: baseline, deviationPct: devPct, severity };
 }
 
-// ─── Flakiness detection ───────────────────────────────────────────────────
-// A job is flaky if it alternates pass/fail across recent runs
+// ─── Flakiness detection ──────────────────────────────────────────────────────
 
 export function isFlakyPattern(conclusions: (string | null)[]): boolean {
-  // Need at least 4 data points
   if (conclusions.length < 4) return false;
-  const recent = conclusions.slice(-6); // look at last 6
+  const recent = conclusions.slice(-6);
   let switches = 0;
   for (let i = 1; i < recent.length; i++) {
     if (recent[i] !== recent[i - 1] && recent[i] !== null && recent[i - 1] !== null) {
       switches++;
     }
   }
-  return switches >= 2; // 2+ alternations = flaky
+  return switches >= 2;
 }

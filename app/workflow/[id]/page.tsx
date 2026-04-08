@@ -6,6 +6,7 @@ import {
   ArrowLeft, ExternalLink, CheckCircle, XCircle, Clock,
   Loader, ChevronDown, ChevronRight, RefreshCw, GitBranch, GitCommit, User, Tag
 } from "lucide-react";
+import { authHeaders } from "@/lib/client-config";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 function StatusIcon({ status }: { status: string }) {
@@ -111,7 +112,7 @@ export default function WorkflowDetailPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    fetch(`/api/workflow/${id}`)
+    fetch(`/api/workflow/${id}`, { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.error) setError(d.error); else setRun(d); })
       .catch(e => setError(e.message))

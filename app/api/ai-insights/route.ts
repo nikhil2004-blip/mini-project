@@ -1,10 +1,10 @@
-// app/api/ai-insights/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerConfig } from "@/lib/server-config";
 import { groqChat, buildCISummaryPrompt } from "@/lib/groq";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { runs, stats } = body;
@@ -20,14 +20,11 @@ export async function POST(req: Request) {
       { role: "user",   content: prompt },
     ], 600);
 
-    // Parse the JSON from Groq's response
     let parsed: any;
     try {
-      // Strip markdown code fences if Groq wraps in ```json ... ```
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
       parsed = JSON.parse(cleaned);
     } catch {
-      // Return raw text if JSON parse fails
       return NextResponse.json({
         healthScore: null,
         status: "Unknown",

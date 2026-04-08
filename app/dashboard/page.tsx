@@ -7,6 +7,7 @@ import {
 import { CheckCircle, XCircle, Clock, AlertTriangle, Zap, Activity, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import AIInsightsPanel from "@/components/ui/AIInsightsPanel";
+import { authHeaders } from "@/lib/client-config";
 
 function StatCard({ label, value, icon: Icon, color }: {
   label: string; value: string | number; icon: any; color: string;
@@ -61,7 +62,7 @@ export default function DashboardPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/runs")
+    fetch("/api/runs", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
@@ -77,7 +78,7 @@ export default function DashboardPage() {
     <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444" }}>
       <strong>GitHub API Error:</strong> {error}
       <p style={{ color: "#94a3b8", marginTop: 8, fontSize: 13 }}>
-        Check your <code>.env.local</code> — GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO must be set with <code>repo</code> scope.
+        <Link href="/projects" style={{ color: "#38bdf8" }}>← Switch repository</Link> or check that your PAT has <code>repo</code> scope.
       </p>
     </div>
   );

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Zap, RefreshCw, AlertTriangle, GitBranch, Calendar } from "lucide-react";
 import Link from "next/link";
+import { authHeaders } from "@/lib/client-config";
 
 const STATUS_MAP: Record<string, { bg: string; color: string }> = {
   passed:  { bg: "#14532d", color: "#22c55e" },
@@ -17,7 +18,7 @@ export default function FlakinessPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/runs")
+    fetch("/api/runs", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.error) setError(d.error); else setData(d); })
       .catch(e => setError(e.message))

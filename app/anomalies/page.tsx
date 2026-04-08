@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, RefreshCw, TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Dot } from "recharts";
+import { authHeaders } from "@/lib/client-config";
 
 const SEV_COLOR: Record<string, string> = {
   critical: "#ef4444",
@@ -49,7 +50,7 @@ export default function AnomaliesPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/runs")
+    fetch("/api/runs", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.error) setError(d.error); else setData(d); })
       .catch(e => setError(e.message))

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GitBranch, Clock, User, ExternalLink, RefreshCw, GitCommit, Tag } from "lucide-react";
+import { authHeaders } from "@/lib/client-config";
 
 const STATUS_MAP: Record<string, { bg: string; color: string; dot: string }> = {
   passed:  { bg: "#14532d", color: "#22c55e", dot: "#22c55e" },
@@ -17,7 +18,7 @@ export default function WorkflowPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/runs")
+    fetch("/api/runs", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => { if (d.error) setError(d.error); else setData(d); })
       .catch(e => setError(e.message))

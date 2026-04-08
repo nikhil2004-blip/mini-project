@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerConfig } from "@/lib/server-config";
 import {
   getWorkflowRuns, getRunJobs,
   runDuration, jobDuration, stepDuration,
@@ -7,31 +8,38 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const ghRuns = await getWorkflowRuns(20);
+    const { token, owner, repo } = getServerConfig(req);
+    if (!token || !owner || !repo) {
+      return NextResponse.json(
+        { error: "Missing GitHub credentials. Please connect your GitHub account on the setup page." },
+        { status: 401 }
+      );
+    }
 
-    // Fetch jobs for each run in parallel (cap at 10 to avoid rate limits)
-    const recentRuns = ghRuns.slice(0, 10);
+    const creds = { token, owner, repo };
+    // Fetch up to 30 most recent runs for good anomaly baseline
+    const ghRuns = await getWorkflowRuns(30, creds);
+
+    // Fetch jobs for each run in parallel
     const jobsPerRun = await Promise.all(
-      recentRuns.map(run => getRunJobs(run.id).catch(() => []))
+      ghRuns.map(run => getRunJobs(run.id, creds).catch(() => []))
     );
 
     // Build duration history per job name for anomaly detection
     const jobDurationHistory: Record<string, number[]> = {};
 
-    const enrichedRuns = recentRuns.map((run, idx) => {
+    const enrichedRuns = ghRuns.map((run, idx) => {
       const jobs = jobsPerRun[idx];
       const totalDur = runDuration(run);
 
-      // Track job durations for anomaly detection
       jobs.forEach(job => {
         const dur = jobDuration(job);
         if (!jobDurationHistory[job.name]) jobDurationHistory[job.name] = [];
         jobDurationHistory[job.name].push(dur);
       });
 
-      // Count findings per scanner (look for scanner names in job names)
       const scannerKeywords = ["semgrep", "trivy", "gitleaks", "sast", "sca", "secret", "container"];
       const findings = jobs
         .filter(j => scannerKeywords.some(k => j.name.toLowerCase().includes(k)))
@@ -65,12 +73,12 @@ export async function GET() {
         jobCount: jobs.length,
         steps,
         findings,
-        anomalies: [] as Anomaly[], // filled below
-        flaky: false, // filled below
+        anomalies: [] as Anomaly[],
+        flaky: false,
       };
     });
 
-    // Now compute anomalies using duration history
+    // Compute anomalies
     enrichedRuns.forEach((run, idx) => {
       const jobs = jobsPerRun[idx];
       const anomalies: Anomaly[] = [];
@@ -83,7 +91,6 @@ export async function GET() {
         }
       });
 
-      // Overall run duration anomaly
       const runDurs = enrichedRuns.slice(0, idx + 1).map(r => r.totalDuration).filter(d => d > 0);
       const runAnomaly = detectAnomalies("Total run duration", runDurs);
       if (runAnomaly) anomalies.push(runAnomaly);
@@ -91,7 +98,7 @@ export async function GET() {
       run.anomalies = anomalies;
     });
 
-    // Compute flakiness per job name
+    // Compute flakiness
     const jobConclusions: Record<string, (string | null)[]> = {};
     jobsPerRun.forEach(jobs => {
       jobs.forEach(job => {
@@ -111,7 +118,6 @@ export async function GET() {
       run.flaky = jobs.some(j => flakyJobNames.has(j.name));
     });
 
-    // Summary stats
     const stats = {
       total: enrichedRuns.length,
       passed: enrichedRuns.filter(r => r.status === "passed").length,
@@ -125,10 +131,7 @@ export async function GET() {
       ),
       anomalyCount: enrichedRuns.reduce((a, r) => a + r.anomalies.length, 0),
       flakyJobNames: Array.from(flakyJobNames),
-      repoInfo: {
-        owner: process.env.GITHUB_OWNER,
-        repo: process.env.GITHUB_REPO,
-      }
+      repoInfo: { owner, repo },
     };
 
     return NextResponse.json({ runs: enrichedRuns, stats });
