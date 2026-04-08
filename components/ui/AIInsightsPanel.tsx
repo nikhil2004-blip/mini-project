@@ -103,7 +103,7 @@ export default function AIInsightsPanel({ runs, stats }: { runs: any[]; stats: a
           <span style={{
             fontSize: 10, color: "#38bdf8", background: "rgba(56,189,248,0.12)",
             padding: "2px 8px", borderRadius: 99, fontWeight: 600,
-          }}>Powered by Groq · Llama 3</span>
+          }}>Powered by Groq · Llama 3.1</span>
         </div>
         <button
           onClick={analyze}

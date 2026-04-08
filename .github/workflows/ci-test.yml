@@ -18,6 +18,10 @@ on:
           - fail
           - flaky
 
+# Opt into Node.js 24 to silence the Node 20 deprecation warnings
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ── Job 1: Build ─────────────────────────────────────────────────────────────
   build:
@@ -29,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm ci --prefer-offline || npm install

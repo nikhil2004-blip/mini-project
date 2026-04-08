@@ -1,7 +1,7 @@
 // lib/groq.ts — Groq API helper for AI-powered CI analysis
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL   = "llama3-8b-8192"; // fast, free-tier friendly
+const GROQ_MODEL   = "llama-3.1-8b-instant"; // fast, free-tier, currently supported
 
 export interface GroqMessage {
   role: "system" | "user" | "assistant";
