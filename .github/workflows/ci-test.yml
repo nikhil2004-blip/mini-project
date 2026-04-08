@@ -1,0 +1,142 @@
+name: CI Dashboard Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Pick a test scenario'
+        required: true
+        default: 'normal'
+        type: choice
+        options:
+          - normal
+          - slow
+          - fail
+          - flaky
+
+jobs:
+  # ── Job 1: Build ─────────────────────────────────────────────────────────────
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline || npm install
+
+      - name: Lint
+        run: echo "Linting... OK"
+
+      - name: Build
+        run: |
+          echo "Building project..."
+          if [[ "${{ github.event.inputs.scenario }}" == "slow" ]]; then
+            echo "Simulating slow build (anomaly scenario)..."
+            sleep 90
+          else
+            sleep 8
+          fi
+          echo "Build complete!"
+
+  # ── Job 2: Test ──────────────────────────────────────────────────────────────
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Unit Tests
+        run: |
+          echo "Running unit tests..."
+          sleep 5
+          if [[ "${{ github.event.inputs.scenario }}" == "fail" ]]; then
+            echo "::error::Simulated test failure!"
+            exit 1
+          fi
+          echo "All unit tests passed!"
+
+      - name: Integration Tests
+        run: |
+          echo "Running integration tests..."
+          sleep 3
+          echo "Integration tests passed!"
+
+      - name: Coverage Report
+        run: |
+          echo "Generating coverage report..."
+          sleep 2
+          echo "Coverage: 82%"
+
+  # ── Job 3: Security Scan ─────────────────────────────────────────────────────
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Dependency Audit
+        run: |
+          echo "Scanning dependencies..."
+          sleep 4
+          echo "No critical vulnerabilities found"
+
+      - name: Secret Detection
+        run: |
+          echo "Scanning for exposed secrets..."
+          sleep 2
+          echo "No secrets exposed"
+
+  # ── Job 4: Flaky Job ─────────────────────────────────────────────────────────
+  flaky-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Flaky Integration Test
+        run: |
+          echo "Running flaky integration test..."
+          sleep 6
+          if [[ "${{ github.event.inputs.scenario }}" == "flaky" ]]; then
+            RAND=$((RANDOM % 2))
+            if [ $RAND -eq 0 ]; then
+              echo "::error::Flaky test failed this time!"
+              exit 1
+            fi
+          fi
+          echo "Integration test passed!"
+
+      - name: E2E Smoke Test
+        run: |
+          echo "Running E2E smoke tests..."
+          sleep 4
+          echo "Smoke tests passed!"
+
+  # ── Job 5: Deploy (only on success) ─────────────────────────────────────────
+  deploy:
+    needs: [build, test, security-scan]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging..."
+          sleep 5
+          echo "Deployed successfully!"
+
+      - name: Run post-deploy checks
+        run: |
+          echo "Verifying deployment..."
+          sleep 3
+          echo "All health checks passed!"
