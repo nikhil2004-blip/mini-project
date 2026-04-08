@@ -3,8 +3,8 @@ import "./globals.css";
 import AppShell from "@/components/ui/AppShell";
 
 export const metadata: Metadata = {
-  title: "CI Observability Dashboard",
-  description: "Lightweight CI-Native Observability for GitHub Actions Runners",
+  title: "VoidWatch | Intelligent CI Observability",
+  description: "Monitor, analyze, and optimize your GitHub Actions with real-time AI-driven insights and anomaly detection.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
