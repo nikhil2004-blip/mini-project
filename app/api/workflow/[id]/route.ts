@@ -11,7 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { token, owner, repo } = getServerConfig(req);
+    const { token, owner, repo } = await getServerConfig(req);
     if (!token || !owner || !repo) {
       return NextResponse.json(
         { error: "Missing GitHub credentials. Please connect your GitHub account." },
@@ -20,6 +20,11 @@ export async function GET(
     }
 
     const { id } = await params;
+    
+    if (!/^\d+$/.test(id)) {
+      return NextResponse.json({ error: "Invalid workflow run ID format" }, { status: 400 });
+    }
+
     const creds = { token, owner, repo };
     const jobs = await getRunJobs(Number(id), creds);
 

@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, RefreshCw, TrendingUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceLine, Dot } from "recharts";
-import { authHeaders } from "@/lib/client-config";
-
 const SEV_COLOR: Record<string, string> = {
   critical: "#ef4444",
   high:     "#f59e0b",
@@ -50,26 +48,38 @@ export default function AnomaliesPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/runs", { headers: authHeaders() })
+    setError("");
+    fetch("/api/runs")
       .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else setData(d); })
+      .then(d => { if (d.error) setError(d.error); else { setError(""); setData(d); } })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(load, []);
 
-  if (error) return (
-    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444" }}>
-      <strong>Error:</strong> {error}
+  const errorHeader = error ? (
+    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444", marginBottom: 20 }}>
+      <strong>API Error:</strong> {error}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
+        <button onClick={load} style={{ background: "#ef4444", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
     </div>
-  );
+  ) : null;
 
   if (loading && !data) return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#64748b", paddingTop: 40 }}>
       <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} />
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       Loading anomaly data...
+    </div>
+  );
+
+  if (!data) return (
+    <div style={{ padding: 20 }}>
+      {errorHeader}
     </div>
   );
 
@@ -104,6 +114,7 @@ export default function AnomaliesPage() {
     <div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
+      {errorHeader}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
         <div>
@@ -128,10 +139,11 @@ export default function AnomaliesPage() {
       {/* Severity summary cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 28 }}>
         {(["critical", "high", "medium", "low"] as const).map(sev => (
-          <div key={sev} style={{
+          <button key={sev} style={{
             background: "#1e293b", border: `1px solid ${sevCounts[sev] > 0 ? SEV_COLOR[sev] + "44" : "#334155"}`,
             borderRadius: 10, padding: "14px 16px", cursor: "pointer",
             transition: "border-color 0.15s",
+            textAlign: "left", display: "block", width: "100%",
           }}
             onClick={() => setSevFilter(sevFilter === sev ? "all" : sev)}
           >
@@ -140,7 +152,7 @@ export default function AnomaliesPage() {
             {sevFilter === sev && (
               <div style={{ fontSize: 10, color: SEV_COLOR[sev], marginTop: 4 }}>● Filtered</div>
             )}
-          </div>
+          </button>
         ))}
       </div>
 

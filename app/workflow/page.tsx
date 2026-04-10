@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { GitBranch, Clock, User, ExternalLink, RefreshCw, GitCommit, Tag } from "lucide-react";
-import { authHeaders } from "@/lib/client-config";
-
 const STATUS_MAP: Record<string, { bg: string; color: string; dot: string }> = {
   passed:  { bg: "#14532d", color: "#22c55e", dot: "#22c55e" },
   failed:  { bg: "#450a0a", color: "#ef4444", dot: "#ef4444" },
@@ -18,23 +16,29 @@ export default function WorkflowPage() {
 
   const load = () => {
     setLoading(true);
-    fetch("/api/runs", { headers: authHeaders() })
+    setError("");
+    fetch("/api/runs")
       .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else setData(d); })
+      .then(d => { if (d.error) setError(d.error); else { setError(""); setData(d); } })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   };
 
   useEffect(load, []);
 
-  if (error) return (
-    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444" }}>
+  const errorHeader = error ? (
+    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444", marginBottom: 20 }}>
       <strong>GitHub API Error:</strong> {error}
       <p style={{ color: "#94a3b8", marginTop: 8, fontSize: 13 }}>
-        Check your <code>.env.local</code> — make sure GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO are set correctly and the token has <code>repo</code> scope.
+        Check your GitHub connection parameters. Ensure your token has <code>repo</code> scope.
       </p>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
+        <button onClick={load} style={{ background: "#ef4444", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
     </div>
-  );
+  ) : null;
 
   if (loading && !data) return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#64748b", paddingTop: 40 }}>
@@ -44,10 +48,17 @@ export default function WorkflowPage() {
     </div>
   );
 
+  if (!data) return (
+    <div style={{ padding: 20 }}>
+      {errorHeader}
+    </div>
+  );
+
   const { runs, stats } = data;
 
   return (
     <div>
+      {errorHeader}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
         <div>

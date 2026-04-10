@@ -6,6 +6,11 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    const { token } = await getServerConfig(req);
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { runs, stats } = body;
 
@@ -14,6 +19,9 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = buildCISummaryPrompt(runs, stats);
+    if (prompt.length > 50000) {
+      return NextResponse.json({ error: "Payload too large to analyze" }, { status: 413 });
+    }
 
     const raw = await groqChat([
       { role: "system", content: "You are a CI/CD pipeline health analyst. Always respond with valid JSON only." },

@@ -19,32 +19,31 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // Verify PAT and fetch real GitHub identity
-      const res = await fetch("https://api.github.com/user", {
-        headers: {
-          Authorization: `Bearer ${token.trim()}`,
-          Accept: "application/vnd.github+json",
-        },
+      // Authenticate via our server API which sets the secure HttpOnly cookie
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: token.trim() })
       });
 
       if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
         if (res.status === 401) {
-          setError("Invalid token. Make sure it has the 'repo' scope and hasn't expired.");
+          setError(errorData.error || "Invalid token. Make sure it has the 'repo' scope and hasn't expired.");
         } else {
-          setError(`GitHub API error ${res.status}. Check your connection and try again.`);
+          setError(`Server error ${res.status}. Check your connection and try again.`);
         }
         setLoading(false);
         return;
       }
 
-      const ghUser = await res.json();
+      const { user: ghUser } = await res.json();
 
-      // Save real GitHub identity + the PAT
+      // Save user profile without the sensitive token
       saveUser({
         username:   ghUser.login,
         name:       ghUser.name || ghUser.login,
         avatar_url: ghUser.avatar_url,
-        token:      token.trim(),
       });
 
       router.push("/projects");

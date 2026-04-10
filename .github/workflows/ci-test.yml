@@ -129,7 +129,7 @@ jobs:
 
   # ── Job 5: Deploy (only on success) ─────────────────────────────────────────
   deploy:
-    needs: [build, test, security-scan]
+    needs: [build, test, security-scan, flaky-integration]
     runs-on: ubuntu-latest
     if: success()
     steps:

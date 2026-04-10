@@ -20,11 +20,12 @@ const STATUS_CONFIG = {
   Unknown:  { color: "#94a3b8", bg: "#1e293b", border: "#334155", icon: AlertTriangle },
 };
 
-function HealthScoreRing({ score }: { score: number }) {
+function HealthScoreRing({ score }: { score: number | null }) {
+  const safeScore = score ?? 0;
   const radius = 30;
   const circ   = 2 * Math.PI * radius;
-  const filled = (score / 100) * circ;
-  const color  = score >= 80 ? "#22c55e" : score >= 50 ? "#f59e0b" : "#ef4444";
+  const filled = (safeScore / 100) * circ;
+  const color  = score === null ? "#94a3b8" : safeScore >= 80 ? "#22c55e" : safeScore >= 50 ? "#f59e0b" : "#ef4444";
 
   return (
     <div style={{ position: "relative", width: 80, height: 80 }}>
@@ -45,7 +46,7 @@ function HealthScoreRing({ score }: { score: number }) {
         position: "absolute", inset: 0,
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1 }}>{score}</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color, lineHeight: 1 }}>{score === null ? "?" : safeScore}</span>
         <span style={{ fontSize: 9, color: "#64748b", marginTop: 1 }}>/ 100</span>
       </div>
     </div>
@@ -166,7 +167,7 @@ export default function AIInsightsPanel({ runs, stats }: { runs: any[]; stats: a
             background: cfg.bg, border: `1px solid ${cfg.border}`,
             borderRadius: 10, padding: "14px 18px", marginBottom: 18,
           }}>
-            <HealthScoreRing score={insight.healthScore ?? 0} />
+            <HealthScoreRing score={insight.healthScore} />
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <cfg.icon size={14} color={cfg.color} />

@@ -1,7 +1,5 @@
-// lib/server-config.ts
-// Reads GitHub credentials from request headers first, then falls back to env vars
-
 import { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
 export interface ServerConfig {
   token: string;
@@ -9,10 +7,12 @@ export interface ServerConfig {
   repo: string;
 }
 
-export function getServerConfig(req: NextRequest): ServerConfig {
+export async function getServerConfig(req?: NextRequest): Promise<ServerConfig> {
+  const cookieStore = await cookies();
+  
   return {
-    token: req.headers.get("x-github-token") ?? process.env.GITHUB_TOKEN ?? "",
-    owner: req.headers.get("x-github-owner") ?? process.env.GITHUB_OWNER ?? "",
-    repo:  req.headers.get("x-github-repo")  ?? process.env.GITHUB_REPO  ?? "",
+    token: (cookieStore.get("gh_token")?.value ?? process.env.GITHUB_TOKEN ?? "").trim(),
+    owner: (cookieStore.get("gh_owner")?.value ?? process.env.GITHUB_OWNER ?? "").trim(),
+    repo:  (cookieStore.get("gh_repo")?.value  ?? process.env.GITHUB_REPO  ?? "").trim(),
   };
 }

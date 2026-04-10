@@ -65,15 +65,23 @@ function makeHeaders(token: string) {
 }
 
 async function ghFetch(path: string, creds: GithubCreds) {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: makeHeaders(creds.token),
-    next: { revalidate: 30 },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`GitHub API ${res.status}: ${text}`);
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      headers: makeHeaders(creds.token),
+      next: { revalidate: 30 },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`GitHub API ${res.status}: ${text}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(id);
   }
-  return res.json();
 }
 
 // ─── Get recent workflow runs ────────────────────────────────────────────────

@@ -6,7 +6,6 @@ import {
   ArrowLeft, ExternalLink, CheckCircle, XCircle, Clock,
   Loader, ChevronDown, ChevronRight, RefreshCw, GitBranch, GitCommit, User, Tag
 } from "lucide-react";
-import { authHeaders } from "@/lib/client-config";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 function StatusIcon({ status }: { status: string }) {
@@ -109,27 +108,40 @@ export default function WorkflowDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = () => {
     if (!id) return;
     setLoading(true);
-    fetch(`/api/workflow/${id}`, { headers: authHeaders() })
+    setError("");
+    fetch(`/api/workflow/${id}`)
       .then(r => r.json())
-      .then(d => { if (d.error) setError(d.error); else setRun(d); })
+      .then(d => { if (d.error) setError(d.error); else { setError(""); setRun(d); } })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  };
 
-  if (error) return (
-    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444" }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>Error loading run</div>
-      {error}
+  useEffect(load, [id]);
+
+  const errorHeader = error ? (
+    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444", marginBottom: 20 }}>
+      <strong>Error:</strong> {error}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
+        <button onClick={load} style={{ background: "#ef4444", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
     </div>
-  );
+  ) : null;
 
-  if (loading || !run) return (
+  if (loading && !run) return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#64748b", paddingTop: 40 }}>
       <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} />
       Loading run details...
+    </div>
+  );
+
+  if (!run) return (
+    <div style={{ padding: 20 }}>
+      {errorHeader}
     </div>
   );
 
@@ -150,6 +162,7 @@ export default function WorkflowDetailPage() {
     <div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
 
+      {errorHeader}
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <Link href="/workflow" style={{

@@ -5,14 +5,12 @@ export interface UserConfig {
   username: string;   // GitHub login
   name: string;       // Display name
   avatar_url: string; // GitHub avatar
-  token: string;      // PAT used to authenticate
 }
 
 export interface GithubProject {
   id: string;         // owner/repo
   owner: string;
   repo: string;
-  token: string;      // PAT for this project (may differ if multiple accounts)
   addedAt: number;
 }
 
@@ -89,14 +87,3 @@ export function clearActiveProject(): void {
   localStorage.removeItem(ACTIVE_PROJECT_KEY);
 }
 
-// ─── API Headers ──────────────────────────────────────────────────────────────
-
-export function authHeaders(): HeadersInit {
-  const active = getActiveProject();
-  if (!active) return {};
-  return {
-    "x-github-token": active.token,
-    "x-github-owner": active.owner,
-    "x-github-repo":  active.repo,
-  };
-}

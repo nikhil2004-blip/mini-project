@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const { token, owner, repo } = getServerConfig(req);
+    const { token, owner, repo } = await getServerConfig(req);
     if (!token || !owner || !repo) {
       return NextResponse.json(
         { error: "Missing GitHub credentials. Please connect your GitHub account on the setup page." },
@@ -22,10 +22,18 @@ export async function GET(req: NextRequest) {
     // Fetch up to 30 most recent runs for good anomaly baseline
     const ghRuns = await getWorkflowRuns(30, creds);
 
-    // Fetch jobs for each run in parallel
-    const jobsPerRun = await Promise.all(
-      ghRuns.map(run => getRunJobs(run.id, creds).catch(() => []))
-    );
+    // Fetch jobs for each run in batches to avoid rate limiting
+    const batchSize = 5;
+    const jobsPerRun: any[] = new Array(ghRuns.length);
+    for (let i = 0; i < ghRuns.length; i += batchSize) {
+      const batch = ghRuns.slice(i, i + batchSize);
+      const results = await Promise.allSettled(
+        batch.map(run => getRunJobs(run.id, creds))
+      );
+      results.forEach((res, batchIdx) => {
+        jobsPerRun[i + batchIdx] = res.status === "fulfilled" ? res.value : [];
+      });
+    }
 
     // Build duration history per job name for anomaly detection
     const jobDurationHistory: Record<string, number[]> = {};
@@ -84,16 +92,23 @@ export async function GET(req: NextRequest) {
       const anomalies: Anomaly[] = [];
 
       jobs.forEach(job => {
-        const history = jobDurationHistory[job.name];
-        if (history && history.length > 1) {
-          const a = detectAnomalies(`${job.name} duration`, history.slice(0, idx + 1));
+        const fullHistory = jobDurationHistory[job.name];
+        if (fullHistory && fullHistory.length > 2) {
+          // oldest runs first, up to the current run
+          // ghRuns is sorted newest first, so idx=0 is newest, idx=29 is oldest.
+          // History for run `idx` should be the values from `fullHistory` at indices `idx` to the end, reversed.
+          const chronologicalHistory = fullHistory.slice(idx).reverse();
+          const a = detectAnomalies(`${job.name} duration`, chronologicalHistory);
           if (a) anomalies.push(a);
         }
       });
 
-      const runDurs = enrichedRuns.slice(0, idx + 1).map(r => r.totalDuration).filter(d => d > 0);
-      const runAnomaly = detectAnomalies("Total run duration", runDurs);
-      if (runAnomaly) anomalies.push(runAnomaly);
+      const totalDurs = enrichedRuns.map(r => r.totalDuration);
+      const chronTotalDurs = totalDurs.slice(idx).reverse().filter(d => d > 0);
+      if (chronTotalDurs.length > 2) {
+        const runAnomaly = detectAnomalies("Total run duration", chronTotalDurs);
+        if (runAnomaly) anomalies.push(runAnomaly);
+      }
 
       run.anomalies = anomalies;
     });

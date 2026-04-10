@@ -38,15 +38,10 @@ export default function ProjectsPage() {
     setUser(u);
     setPinned(getProjects());
 
-    // Fetch all repos from GitHub using the stored token
-    fetch("https://api.github.com/user/repos?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member", {
-      headers: {
-        Authorization: `Bearer ${u.token}`,
-        Accept: "application/vnd.github+json",
-      },
-    })
+    // Fetch all repos from our local API using the HttpOnly token
+    fetch("/api/repos")
       .then(r => {
-        if (!r.ok) throw new Error(`GitHub API ${r.status}`);
+        if (!r.ok) throw new Error(`API error ${r.status}`);
         return r.json();
       })
       .then((data: GithubRepo[]) => setRepos(data))
@@ -54,11 +49,19 @@ export default function ProjectsPage() {
       .finally(() => setLoadingRepos(false));
   }, [router]);
 
-  const handleSelectRepo = (repo: GithubRepo) => {
+  const handleSelectRepo = async (repo: GithubRepo) => {
     if (!user) return;
     setConnecting(repo.full_name);
     const projectId = repo.full_name;
-    saveProject({ id: projectId, owner: repo.owner.login, repo: repo.name, token: user.token, addedAt: Date.now() });
+    
+    // Set active project on the server
+    await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner: repo.owner.login, repo: repo.name })
+    });
+    
+    saveProject({ id: projectId, owner: repo.owner.login, repo: repo.name, addedAt: Date.now() });
     setActiveProject(projectId);
     router.push("/dashboard");
   };
@@ -118,10 +121,18 @@ export default function ProjectsPage() {
             </h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {pinned.map(p => (
-                <div
+                <button
                   key={p.id}
-                  onClick={() => { setActiveProject(p.id); router.push("/dashboard"); }}
-                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 12, padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s" }}
+                  onClick={async () => { 
+                    setActiveProject(p.id);
+                    await fetch("/api/auth", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ owner: p.owner, repo: p.repo })
+                    });
+                    router.push("/dashboard"); 
+                  }}
+                  style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 12, padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s", textAlign: "left", width: "100%", color: "#f1f5f9" }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = "#818cf8"; e.currentTarget.style.transform = "translateY(-1px)"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = "#334155"; e.currentTarget.style.transform = "none"; }}
                 >
@@ -131,7 +142,7 @@ export default function ProjectsPage() {
                     <div style={{ fontSize: 11, color: "#64748b" }}>Added {new Date(p.addedAt).toLocaleDateString()}</div>
                   </div>
                   <ChevronRight size={14} color="#475569" />
-                </div>
+                </button>
               ))}
             </div>
           </section>

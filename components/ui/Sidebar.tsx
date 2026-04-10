@@ -174,6 +174,10 @@ export default function Sidebar() {
         >
           <div
             onClick={e => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="modal-title"
+            aria-describedby="modal-desc"
             style={{
               background: "#1e293b", border: "1px solid #334155",
               borderRadius: 16, padding: 28, width: 380,
@@ -183,18 +187,19 @@ export default function Sidebar() {
           >
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
+              <h3 id="modal-title" style={{ fontSize: 18, fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
                 Remove Repository
               </h3>
               <button
                 onClick={() => setShowDisconnect(false)}
+                aria-label="Close modal"
                 style={{ background: "transparent", border: "none", color: "#64748b", cursor: "pointer", padding: 4, borderRadius: 4, display: "flex" }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <p style={{ fontSize: 14, color: "#94a3b8", margin: "0 0 24px", lineHeight: 1.6 }}>
+            <p id="modal-desc" style={{ fontSize: 14, color: "#94a3b8", margin: "0 0 24px", lineHeight: 1.6 }}>
               Remove <strong style={{ color: "#f1f5f9" }}>{project?.owner}/{project?.repo}</strong> from your dashboard? You can re-add it anytime from the Projects page.
             </p>
 

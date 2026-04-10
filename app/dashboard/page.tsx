@@ -7,8 +7,6 @@ import {
 import { CheckCircle, XCircle, Clock, AlertTriangle, Zap, Activity, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import AIInsightsPanel from "@/components/ui/AIInsightsPanel";
-import { authHeaders } from "@/lib/client-config";
-
 function StatCard({ label, value, icon: Icon, color }: {
   label: string; value: string | number; icon: any; color: string;
 }) {
@@ -61,12 +59,13 @@ export default function DashboardPage() {
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
 
   const load = () => {
+    setError("");
     setLoading(true);
-    fetch("/api/runs", { headers: authHeaders() })
+    fetch("/api/runs")
       .then(r => r.json())
       .then(d => {
         if (d.error) setError(d.error);
-        else { setData(d); setLastFetch(new Date()); }
+        else { setError(""); setData(d); setLastFetch(new Date()); }
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));
@@ -74,20 +73,32 @@ export default function DashboardPage() {
 
   useEffect(load, []);
 
-  if (error) return (
-    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444" }}>
-      <strong>GitHub API Error:</strong> {error}
-      <p style={{ color: "#94a3b8", marginTop: 8, fontSize: 13 }}>
-        <Link href="/projects" style={{ color: "#38bdf8" }}>← Switch repository</Link> or check that your PAT has <code>repo</code> scope.
-      </p>
+  // Show error but still allow user to refresh
+  const errorHeader = error ? (
+    <div style={{ background: "#450a0a", border: "1px solid #ef4444", borderRadius: 12, padding: 20, color: "#ef4444", marginBottom: 20 }}>
+      <strong>API Error:</strong> {error}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
+        <button onClick={load} style={{ background: "#ef4444", border: "none", color: "#fff", padding: "6px 14px", borderRadius: 6, cursor: "pointer", fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+          <RefreshCw size={14} /> Retry
+        </button>
+        <p style={{ color: "#94a3b8", margin: 0, fontSize: 13 }}>
+          <Link href="/projects" style={{ color: "#38bdf8" }}>← Switch repository</Link>
+        </p>
+      </div>
     </div>
-  );
+  ) : null;
 
   if (loading && !data) return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, color: "#64748b", paddingTop: 40 }}>
       <RefreshCw size={16} style={{ animation: "spin 1s linear infinite" }} />
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       Fetching CI data from GitHub...
+    </div>
+  );
+
+  if (!data) return (
+    <div style={{ padding: 20 }}>
+      {errorHeader}
     </div>
   );
 
@@ -106,6 +117,7 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {errorHeader}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
         <div>
