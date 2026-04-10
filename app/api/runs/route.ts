@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
       return {
         id: String(run.id),
         runNumber: run.run_number,
+        name: run.name,
         commitSha: run.head_sha.slice(0, 7),
         branch: run.head_branch,
         timestamp: run.created_at,
@@ -135,7 +136,30 @@ export async function GET(req: NextRequest) {
 
     enrichedRuns.forEach((run, idx) => {
       const jobs = jobsPerRun[idx];
-      run.flaky = jobs.some((j: GHJob) => flakyJobNames.has(`${run.name}-${cleanJobName(j.name)}`));
+      run.flaky = jobs.some((j: GHJob) => {
+        const jobBaseName = cleanJobName(j.name);
+        const jobKey = `${run.name}-${jobBaseName}`;
+        if (!flakyJobNames.has(jobKey)) return false;
+
+        // 1. Current Failure: If this job instance failed, it's an active flaky event
+        if (j.conclusion === 'failure') return true;
+
+        // 2. Intra-run Mixed Results (Matrix): Some shards passed, some failed in THIS specific run
+        const shards = jobs.filter((s: GHJob) => cleanJobName(s.name) === jobBaseName);
+        const hasMixedResults = shards.some((s: GHJob) => s.conclusion === 'success') && 
+                               shards.some((s: GHJob) => s.conclusion === 'failure');
+        if (hasMixedResults) return true;
+
+        // 3. Recovery Transition: This job passed now, but the previous chronological run of this workflow FAILED
+        const prevRun = enrichedRuns[idx + 1];
+        if (prevRun && prevRun.name === run.name) {
+          const prevJobs = jobsPerRun[idx + 1] || [];
+          const wasFailing = prevJobs.some((pj: GHJob) => cleanJobName(pj.name) === jobBaseName && pj.conclusion === 'failure');
+          if (wasFailing && j.conclusion === 'success') return true;
+        }
+
+        return false;
+      });
     });
 
     const stats = {
