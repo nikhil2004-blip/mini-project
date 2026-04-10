@@ -176,11 +176,16 @@ export function detectAnomalies(
 // ─── Flakiness detection ──────────────────────────────────────────────────────
 
 export function isFlakyPattern(conclusions: (string | null)[]): boolean {
-  if (conclusions.length < 4) return false;
-  const recent = conclusions.slice(-6);
+  // Only consider true pass/fail outcomes for flakiness
+  const outcomes = conclusions
+    .filter(c => c === "success" || c === "failure" || c === "timed_out")
+    .slice(0, 30);
+  
+  if (outcomes.length < 3) return false;
+  
   let switches = 0;
-  for (let i = 1; i < recent.length; i++) {
-    if (recent[i] !== recent[i - 1] && recent[i] !== null && recent[i - 1] !== null) {
+  for (let i = 1; i < outcomes.length; i++) {
+    if (outcomes[i] !== outcomes[i - 1]) {
       switches++;
     }
   }

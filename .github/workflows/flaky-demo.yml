@@ -1,0 +1,31 @@
+name: One-Click Flaky Demo
+
+on:
+  workflow_dispatch:
+
+# Opt into Node.js 24 to silence the Node 20 deprecation warnings
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  flaky-shards:
+    name: Flaky Shard (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - name: Simulated Test
+        run: |
+          echo "Running matrix shard ${{ matrix.shard }}..."
+          # Random sleep to simulate variation
+          sleep $(( (RANDOM % 5) + 2 ))
+          
+          # 50% chance of failure
+          RAND=$((RANDOM % 2))
+          if [ $RAND -eq 0 ]; then
+            echo "::error::Simulated flakiness in shard ${{ matrix.shard }}!"
+            exit 1
+          fi
+          echo "Shard ${{ matrix.shard }} passed!"

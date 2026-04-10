@@ -66,7 +66,7 @@ export default function FlakinessPage() {
         <div>
           <h1 style={{ fontSize: 26, fontWeight: 700, margin: 0, marginBottom: 4 }}>Flakiness Tracker</h1>
           <p style={{ color: "#64748b", fontSize: 13, margin: 0 }}>
-            Jobs with 2+ pass/fail alternations in the last 6 runs are flagged as flaky
+            Jobs with 2+ pass/fail alternations in the last 30 runs are flagged as flaky
           </p>
         </div>
         <button
@@ -111,7 +111,7 @@ export default function FlakinessPage() {
           Flaky Job Patterns Detected
         </h3>
         <p style={{ margin: "0 0 14px", fontSize: 12, color: "#475569" }}>
-          These job names have shown 2+ pass/fail alternations across recent runs
+          These job names have shown 2+ pass/fail alternations across last 30 runs
         </p>
 
         {flakyJobNames.length === 0 ? (

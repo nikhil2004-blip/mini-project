@@ -115,23 +115,27 @@ export async function GET(req: NextRequest) {
     });
 
     // Compute flakiness
+    const cleanJobName = (name: string) => name.replace(/\s*\(.*\)$/, "");
+    
     const jobConclusions: Record<string, (string | null)[]> = {};
-    jobsPerRun.forEach(jobs => {
+    jobsPerRun.forEach((jobs, idx) => {
+      const run = ghRuns[idx];
       jobs.forEach((job: GHJob) => {
-        if (!jobConclusions[job.name]) jobConclusions[job.name] = [];
-        jobConclusions[job.name].push(job.conclusion);
+        const key = `${run.name}-${cleanJobName(job.name)}`;
+        if (!jobConclusions[key]) jobConclusions[key] = [];
+        jobConclusions[key].push(job.conclusion);
       });
     });
 
     const flakyJobNames = new Set(
       Object.entries(jobConclusions)
         .filter(([, conclusions]) => isFlakyPattern(conclusions))
-        .map(([name]) => name)
+        .map(([key]) => key)
     );
 
     enrichedRuns.forEach((run, idx) => {
       const jobs = jobsPerRun[idx];
-      run.flaky = jobs.some((j: GHJob) => flakyJobNames.has(j.name));
+      run.flaky = jobs.some((j: GHJob) => flakyJobNames.has(`${run.name}-${cleanJobName(j.name)}`));
     });
 
     const stats = {
