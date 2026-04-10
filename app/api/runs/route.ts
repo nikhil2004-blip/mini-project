@@ -3,7 +3,8 @@ import { getServerConfig } from "@/lib/server-config";
 import {
   getWorkflowRuns, getRunJobs,
   runDuration, jobDuration, stepDuration,
-  mapStatus, detectAnomalies, isFlakyPattern, Anomaly
+  mapStatus, detectAnomalies, isFlakyPattern, Anomaly,
+  GHJob, GHStep
 } from "@/lib/github";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     const { token, owner, repo } = await getServerConfig(req);
     if (!token || !owner || !repo) {
       return NextResponse.json(
-        { error: "Missing GitHub credentials. Please connect your GitHub account on the setup page." },
+        { error: "Missing GitHub credentials. Please connect your GitHub account on the login page." },
         { status: 401 }
       );
     }
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch jobs for each run in batches to avoid rate limiting
     const batchSize = 5;
-    const jobsPerRun: any[] = new Array(ghRuns.length);
+    const jobsPerRun: GHJob[][] = new Array(ghRuns.length);
     for (let i = 0; i < ghRuns.length; i += batchSize) {
       const batch = ghRuns.slice(i, i + batchSize);
       const results = await Promise.allSettled(
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
       const jobs = jobsPerRun[idx];
       const totalDur = runDuration(run);
 
-      jobs.forEach(job => {
+      jobs.forEach((job: GHJob) => {
         const dur = jobDuration(job);
         if (!jobDurationHistory[job.name]) jobDurationHistory[job.name] = [];
         jobDurationHistory[job.name].push(dur);
@@ -50,15 +51,15 @@ export async function GET(req: NextRequest) {
 
       const scannerKeywords = ["semgrep", "trivy", "gitleaks", "sast", "sca", "secret", "container"];
       const findings = jobs
-        .filter(j => scannerKeywords.some(k => j.name.toLowerCase().includes(k)))
-        .map(j => ({
+        .filter((j: GHJob) => scannerKeywords.some(k => j.name.toLowerCase().includes(k)))
+        .map((j: GHJob) => ({
           scanner: j.name,
           critical: 0, high: 0, medium: 0, low: 0,
           status: mapStatus(j.status, j.conclusion),
         }));
 
-      const steps = jobs.flatMap(job =>
-        (job.steps ?? []).map(s => ({
+      const steps = jobs.flatMap((job: GHJob) =>
+        (job.steps ?? []).map((s: GHStep) => ({
           name: s.name,
           jobName: job.name,
           duration: stepDuration(s),
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
       const jobs = jobsPerRun[idx];
       const anomalies: Anomaly[] = [];
 
-      jobs.forEach(job => {
+      jobs.forEach((job: GHJob) => {
         const fullHistory = jobDurationHistory[job.name];
         if (fullHistory && fullHistory.length > 2) {
           // oldest runs first, up to the current run
@@ -116,7 +117,7 @@ export async function GET(req: NextRequest) {
     // Compute flakiness
     const jobConclusions: Record<string, (string | null)[]> = {};
     jobsPerRun.forEach(jobs => {
-      jobs.forEach(job => {
+      jobs.forEach((job: GHJob) => {
         if (!jobConclusions[job.name]) jobConclusions[job.name] = [];
         jobConclusions[job.name].push(job.conclusion);
       });
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest) {
 
     enrichedRuns.forEach((run, idx) => {
       const jobs = jobsPerRun[idx];
-      run.flaky = jobs.some(j => flakyJobNames.has(j.name));
+      run.flaky = jobs.some((j: GHJob) => flakyJobNames.has(j.name));
     });
 
     const stats = {

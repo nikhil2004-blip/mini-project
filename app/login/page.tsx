@@ -158,7 +158,7 @@ export default function LoginPage() {
           <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 20, padding: "12px", background: "rgba(56,189,248,0.04)", borderRadius: 8, border: "1px solid rgba(56,189,248,0.08)" }}>
             <ShieldCheck size={14} color="#38bdf8" style={{ flexShrink: 0, marginTop: 1 }} />
             <p style={{ margin: 0, fontSize: 11, color: "#475569", lineHeight: 1.6 }}>
-              Your token is stored <strong style={{ color: "#64748b" }}>only in this browser's localStorage</strong> and is never sent to any server other than the GitHub API directly.
+              Your token is sent securely to our server to be stored in an <strong style={{ color: "#64748b" }}>HttpOnly cookie</strong>. It is never shared with third parties.
             </p>
           </div>
         </div>
